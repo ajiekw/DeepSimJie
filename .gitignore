@@ -41,3 +41,7 @@ venv/
 Thumbs.db
 *.swp
 *~
+
+# Local server wrappers — do not publish
+serve.sh
+deploy/
