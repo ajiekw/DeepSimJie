@@ -1,0 +1,43 @@
+# Credentials, keys, and certificates
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+credentials.json
+credentials*.json
+secrets.json
+secrets*.json
+service-account*.json
+*.secret
+auth.json
+token.json
+
+# Local auth and shell secrets
+.npmrc
+.netrc
+.ssh/
+
+# Logs, caches, and virtualenvs
+*.log
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# OS and editor
+.DS_Store
+Thumbs.db
+*.swp
+*~

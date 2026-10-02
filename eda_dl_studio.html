@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AutoEDA & Deep Learning Studio (PyTorch / TensorFlow)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+  --bg: #0b0f19; --card: #131b2e; --border: #1f2c47;
+  --text: #e2e8f0; --sub: #8492a6; --accent: #38bdf8;
+  --pos: #4ade80; --warn: #fbbf24; --neg: #f87171;
+  --purple: #a855f7; --blue: #3b82f6;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+header { background: #0f172a; border-bottom: 1px solid var(--border); padding: 0.8rem 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+.logo { font-size: 1.15rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 0.6rem; }
+.nav-tabs { display: flex; gap: 0.5rem; }
+.tab-btn { background: transparent; border: 1px solid var(--border); color: var(--sub); padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: 0.2s; }
+.tab-btn.active, .tab-btn:hover { background: var(--card); color: var(--accent); border-color: var(--accent); }
+main { flex: 1; padding: 1.2rem; display: flex; flex-direction: column; gap: 1.2rem; }
+.panel { display: none; }
+.panel.active { display: flex; flex-direction: column; gap: 1.2rem; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+.card-head { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 0.8rem; display: flex; justify-content: space-between; align-items: center; }
+
+/* EDA Section */
+.upload-box { border: 2px dashed var(--border); border-radius: 8px; padding: 1.5rem; text-align: center; cursor: pointer; transition: 0.2s; background: rgba(19,27,46,0.5); }
+.upload-box:hover { border-color: var(--accent); background: rgba(56,189,248,0.05); }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.8rem; margin: 1rem 0; }
+.stat-box { background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem; text-align: center; }
+.stat-num { font-size: 1.4rem; font-weight: bold; color: var(--accent); }
+.table-wrap { overflow-x: auto; max-height: 280px; margin-top: 0.8rem; border: 1px solid var(--border); border-radius: 6px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left; }
+th, td { padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { background: #0f172a; color: var(--sub); position: sticky; top: 0; }
+tr:hover { background: rgba(255,255,255,0.02); }
+
+/* DL Builder Layout */
+.builder-layout { display: grid; grid-template-columns: 240px 1fr 300px; gap: 1rem; align-items: start; }
+@media (max-width: 1050px) { .builder-layout { grid-template-columns: 1fr; } }
+.palette { display: flex; flex-direction: column; gap: 0.5rem; max-height: 600px; overflow-y: auto; }
+.layer-item { background: #0f172a; border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 0.8rem; cursor: grab; font-size: 0.8rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+.layer-item:hover { border-color: var(--accent); background: #16243d; }
+.tag-pt { font-size: 0.65rem; background: #ea580c33; color: #fb923c; padding: 2px 6px; border-radius: 4px; }
+.tag-tf { font-size: 0.65rem; background: #eab30833; color: #facc15; padding: 2px 6px; border-radius: 4px; }
+.canvas-area { background: #0a0f1d; border: 2px dashed var(--border); border-radius: 8px; min-height: 380px; padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.canvas-area.dragover { border-color: var(--accent); background: rgba(56,189,248,0.04); }
+.stack-layer { background: #111a2e; border: 1px solid var(--accent); border-radius: 6px; padding: 0.7rem 1rem; display: flex; justify-content: space-between; align-items: center; animation: fadeIn 0.2s; }
+.stack-left { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; font-size: 0.85rem; }
+.del-btn { background: transparent; border: none; color: var(--neg); cursor: pointer; font-size: 1rem; }
+
+/* Hyperparameters Form */
+.form-group { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.8rem; }
+.form-group label { font-size: 0.75rem; color: var(--sub); font-weight: 600; }
+.form-control { background: #0f172a; border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.7rem; color: #fff; font-size: 0.8rem; outline: none; }
+.form-control:focus { border-color: var(--accent); }
+.btn-action { background: var(--accent); color: #000; border: none; font-weight: 700; border-radius: 6px; padding: 0.65rem 1rem; cursor: pointer; width: 100%; transition: 0.2s; margin-top: 0.5rem; }
+.btn-action:hover { opacity: 0.9; }
+
+/* Simulation Area */
+.sim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 900px) { .sim-grid { grid-template-columns: 1fr; } }
+#net-canvas { width: 100%; height: 320px; background: #070a13; border: 1px solid var(--border); border-radius: 8px; display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span>🧠</span> AutoEDA & Deep Learning Studio
+    <span style="font-size:0.7rem;background:var(--border);padding:2px 8px;border-radius:99px;color:var(--accent)">PyTorch & TensorFlow Ready</span>
+  </div>
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('eda')">1. Data Import & EDA</button>
+    <button class="tab-btn" onclick="switchTab('builder')">2. Model Builder & Params</button>
+    <button class="tab-btn" onclick="switchTab('simulation')">3. Network Simulator</button>
+  </div>
+</header>
+
+<main>
+  <!-- TAB 1: EDA -->
+  <section id="panel-eda" class="panel active">
+    <div class="card">
+      <div class="card-head">
+        <span>📁 Import Dataset (CSV / JSON)</span>
+        <button class="tab-btn" onclick="loadSampleData()">Pakai Sample Data (Iris / Housing)</button>
+      </div>
+      <div class="upload-box" onclick="document.getElementById('csv-file').click()">
+        <p style="font-size:1.1rem;font-weight:600;margin-bottom:0.3rem">Klik atau Drag & Drop file CSV/JSON disini</p>
+        <span style="color:var(--sub);font-size:0.8rem">Otomatis kalkulasi summary statistik, missing values, & chart distribusi fitur</span>
+        <input type="file" id="csv-file" accept=".csv,.json" style="display:none" onchange="handleFileUpload(event)"/>
+      </div>
+
+      <div class="stat-grid" id="eda-stats" style="display:none">
+        <div class="stat-box"><div style="color:var(--sub);font-size:0.75rem">Total Baris</div><div class="stat-num" id="s-rows">0</div></div>
+        <div class="stat-box"><div style="color:var(--sub);font-size:0.75rem">Total Kolom</div><div class="stat-num" id="s-cols">0</div></div>
+        <div class="stat-box"><div style="color:var(--sub);font-size:0.75rem">Fitur Numerik</div><div class="stat-num" id="s-num">0</div></div>
+        <div class="stat-box"><div style="color:var(--sub);font-size:0.75rem">Missing Cells</div><div class="stat-num" id="s-missing">0</div></div>
+      </div>
+
+      <div id="eda-content" style="display:none;margin-top:1rem">
+        <div style="font-size:0.9rem;font-weight:700;color:#fff;margin-bottom:0.4rem">Pratinjau Data (Top 5 Baris)</div>
+        <div class="table-wrap"><table id="preview-table"></table></div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.2rem">
+          <div style="background:#0f172a;padding:0.8rem;border-radius:8px;border:1px solid var(--border)">
+            <div style="font-size:0.8rem;color:var(--sub);margin-bottom:0.6rem">Distribusi Kolom Terpilih:</div>
+            <select id="col-selector" class="form-control" style="margin-bottom:0.8rem" onchange="renderEdaChart()"></select>
+            <div style="height:200px"><canvas id="eda-chart"></canvas></div>
+          </div>
+          <div style="background:#0f172a;padding:0.8rem;border-radius:8px;border:1px solid var(--border)">
+            <div style="font-size:0.8rem;color:var(--sub);margin-bottom:0.6rem">Statistik Deskriptif Fitur</div>
+            <div class="table-wrap"><table id="desc-table"></table></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 2: MODEL BUILDER -->
+  <section id="panel-builder" class="panel">
+    <div class="card">
+      <div class="card-head">
+        <span>Arsitektur Preset & Export Kode</span>
+        <div style="display:flex;gap:0.5rem">
+          <select id="preset-selector" class="form-control" onchange="applyPreset(this.value)">
+            <option value="">-- Pilih Template Arsitektur --</option>
+            <option value="mlp">Multi-Layer Perceptron (Tabular Classifier)</option>
+            <option value="cnn">Convolutional Neural Network (CNN Vision)</option>
+            <option value="rnn">Recurrent LSTM Net (Sequence/NLP)</option>
+            <option value="autoencoder">Deep Autoencoder (Anomaly/Dim-Reduction)</option>
+            <option value="transformer">Transformer Encoder (Multi-Head Self-Attention)</option>
+          </select>
+          <button class="tab-btn" onclick="exportCode('pytorch')">Kode PyTorch</button>
+          <button class="tab-btn" onclick="exportCode('tensorflow')">Kode TensorFlow</button>
+        </div>
+      </div>
+
+      <div class="builder-layout">
+        <!-- Palette -->
+        <div class="card" style="padding:0.8rem">
+          <div style="font-size:0.8rem;font-weight:700;color:#fff;margin-bottom:0.6rem">Katalog Layer</div>
+          <div class="palette">
+            <div class="layer-item" draggable="true" ondragstart="drag(event, 'Dense / Linear')">
+              <span>Linear / Dense</span><span class="tag-pt">PT / TF</span>
+            </div>
+            <div class="layer-item" draggable="true" ondragstart="drag(event, 'Conv2D')">
+              <span>Conv2D</span><span class="tag-tf">Vision</span>
+            </div>
+            <div class="layer-item" draggable="true" ondragstart="drag(event, 'MaxPool2D')">
+              <span>MaxPool2D</span><span class="tag-pt">Pool</span>
+            </div>
+            <div class="layer-item" draggable="true" ondragstart="drag(event, 'LSTM')">
+              <span>LSTM Layer</span><span class="tag-pt">Seq</span>
+            </div>
+            <div class="layer-item" draggable="true" ondragstart="drag(event, 'GRU')">
+              <span>GRU Layer</span><span class="tag-tf">Seq</span>
+            </div>
+            <div class="layer-item" draggable="true" ondragstart="drag(event, 'Dropout')">
+              <span>Dropout (0.2 - 0.5)</span><span class="tag-pt">Reg</span>
+            </div>
+            <div class="layer-item" draggable="true" ondragstart="drag(event, 'BatchNorm')">
+              <span>BatchNormalization</span><span class="tag-tf">Norm</span>
+            </div>
+            <div class="layer-item" draggable="true" ondragstart="drag(event, 'Activation (ReLU)')">
+              <span>ReLU Activation</span><span class="tag-pt">Act</span>
+            </div>
+            <div class="layer-item" draggable="true" ondragstart="drag(event, 'Activation (Softmax)')">
+              <span>Softmax Output</span><span class="tag-tf">Out</span>
+            </div>
+            <div class="layer-item" draggable="true" ondragstart="drag(event, 'Multi-Head Attention')">
+              <span>MultiHead Attention</span><span class="tag-pt">Attn</span>
+            </div>
+            <div class="layer-item" draggable="true" ondragstart="drag(event, 'FeedForward Block')">
+              <span>Transformer FFN</span><span class="tag-tf">FFN</span>
+            </div>
+            <div class="layer-item" draggable="true" ondragstart="drag(event, 'LayerNorm / Residual')">
+              <span>LayerNorm & Add</span><span class="tag-pt">Norm</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Canvas Drag Drop -->
+        <div class="card" style="padding:0.8rem">
+          <div style="font-size:0.8rem;font-weight:700;color:#fff;margin-bottom:0.6rem;display:flex;justify-content:space-between">
+            <span>Model Pipeline (Drag layer ke sini)</span>
+            <span id="layer-count" style="color:var(--accent);font-size:0.75rem">3 Layer</span>
+          </div>
+          <div class="canvas-area" id="drop-target" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="drop(event)">
+            <!-- Stack generated here -->
+          </div>
+        </div>
+
+        <!-- Hyperparameter Tune Form -->
+        <div class="card" style="padding:0.8rem">
+          <div style="font-size:0.8rem;font-weight:700;color:#fff;margin-bottom:0.8rem">Hyperparameter Tuning</div>
+          <div class="form-group">
+            <label>Optimizer</label>
+            <select id="p-opt" class="form-control">
+              <option value="Adam">Adam (lr adaptive)</option>
+              <option value="SGD">SGD + Momentum</option>
+              <option value="RMSprop">RMSprop</option>
+              <option value="AdamW">AdamW (Decay)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Learning Rate</label>
+            <input type="number" id="p-lr" class="form-control" value="0.001" step="0.0001" min="0.00001"/>
+          </div>
+          <div class="form-group">
+            <label>Loss Function</label>
+            <select id="p-loss" class="form-control">
+              <option value="CrossEntropy">Categorical CrossEntropy</option>
+              <option value="BCE">Binary CrossEntropy</option>
+              <option value="MSE">Mean Squared Error (MSE)</option>
+              <option value="Huber">Huber Loss</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Batch Size</label>
+            <input type="number" id="p-batch" class="form-control" value="32" step="8"/>
+          </div>
+          <div class="form-group">
+            <label>Epochs</label>
+            <input type="number" id="p-epochs" class="form-control" value="30"/>
+          </div>
+          <div class="form-group">
+            <label>Weight Decay (L2)</label>
+            <input type="number" id="p-l2" class="form-control" value="0.0001" step="0.0001"/>
+          </div>
+          <button class="btn-action" onclick="runSimFromBuilder()">Uji & Jalankan Simulasi ➔</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 3: NETWORK SIMULATION -->
+  <section id="panel-simulation" class="panel">
+    <div class="card">
+      <div class="card-head">
+        <span>Visualisasi Forward Pass & Kurva Pembelajaran</span>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          <button class="tab-btn" id="sim-btn" onclick="toggleSimulation()">▶ Mulai Latihan / Simulasi</button>
+          <button class="tab-btn" onclick="resetSim()">↺ Reset</button>
+        </div>
+      </div>
+
+      <div class="sim-grid">
+        <div>
+          <div style="font-size:0.8rem;color:var(--sub);margin-bottom:0.4rem">Topologi Jaringan & Signal Forward Feed:</div>
+          <canvas id="net-canvas"></canvas>
+          <div id="sim-dataset-info" style="margin-top:0.75rem;padding:0.75rem 1rem;background:#0f172a;border:1px solid var(--border);border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;font-size:0.8rem">
+            <div>
+              <span style="color:var(--sub)">Dataset Aktif:</span>
+              <strong id="sim-ds-name" style="color:var(--accent);margin-left:0.3rem">Synthetic / Demo Stream</strong>
+            </div>
+            <div style="display:flex;gap:1.2rem;color:var(--sub)">
+              <span>Dimensi: <b id="sim-ds-dim" style="color:#fff">4 Fitur</b></span>
+              <span>Total Sampel: <b id="sim-ds-rows" style="color:#fff">Demo (100)</b></span>
+              <span>Status Input: <b id="sim-ds-status" style="color:var(--pos)">Streaming Real-time</b></span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:1rem">
+          <div style="background:#0f172a;padding:0.8rem;border-radius:8px;border:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem">
+              <span style="font-size:0.8rem;color:var(--sub)">Metrik Live (Epoch <span id="m-epoch">0</span>)</span>
+              <span style="font-size:0.8rem;color:var(--pos)">Akurasi: <b id="m-acc">0.0%</b> | Loss: <b id="m-loss">0.000</b></span>
+            </div>
+            <div style="height:250px"><canvas id="train-chart"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+// State
+let parsedData = [];
+let currentStack = [
+  { name: 'Linear / Dense (Input: 8, Units: 64)', type: 'Dense' },
+  { name: 'Activation (ReLU)', type: 'ReLU' },
+  { name: 'Dropout (Rate: 0.3)', type: 'Dropout' },
+  { name: 'Linear / Dense (Units: 16)', type: 'Dense' },
+  { name: 'Activation (Softmax / Out: 3)', type: 'Softmax' }
+];
+let edaChartInstance = null;
+let trainChartInstance = null;
+
+// Tab Switch
+function switchTab(id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`button[onclick="switchTab('${id}')"]`)?.classList.add('active');
+  document.getElementById(`panel-${id}`).classList.add('active');
+  if (id === 'simulation') initSimCanvas();
+}
+
+// ── EDA MODULE ────────────────────────────────────────────────────────────────
+function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.name.endsWith('.csv')) {
+    Papa.parse(file, {
+      header: true,
+      dynamicTyping: true,
+      skipEmptyLines: true,
+      complete: function(res) {
+        processDataset(res.data);
+        const colCount = res.data && res.data[0] ? Object.keys(res.data[0]).length : 0;
+        updateSimDatasetBadge(file.name + ' (CSV)', res.data.length, colCount);
+      }
+    });
+  } else if (file.name.endsWith('.json')) {
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        processDataset(parsed);
+        const colCount = parsed && parsed[0] ? Object.keys(parsed[0]).length : 0;
+        updateSimDatasetBadge(file.name + ' (JSON)', parsed.length, colCount);
+      } catch (err) {
+        alert('Format JSON tidak valid: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+}
+
+function loadSampleData() {
+  const sample = [];
+  const species = ['Setosa', 'Versicolor', 'Virginica'];
+  for (let i = 0; i < 150; i++) {
+    const sp = species[Math.floor(i / 50)];
+    sample.push({
+      sepal_length: +(4.5 + Math.random() * 3).toFixed(2),
+      sepal_width: +(2.0 + Math.random() * 2).toFixed(2),
+      petal_length: +(1.0 + Math.random() * 5).toFixed(2),
+      petal_width: +(0.1 + Math.random() * 2.4).toFixed(2),
+      species: sp
+    });
+  }
+  processDataset(sample); updateSimDatasetBadge('Iris Flower Classification (Sample)', sample.length, 4);
+}
+
+function updateSimDatasetBadge(name, rows, cols) {
+  const elName = document.getElementById('sim-ds-name');
+  const elDim = document.getElementById('sim-ds-dim');
+  const elRows = document.getElementById('sim-ds-rows');
+  const elStatus = document.getElementById('sim-ds-status');
+  if (elName) elName.textContent = name;
+  if (elDim) elDim.textContent = `${cols} Fitur Numerik`;
+  if (elRows) elRows.textContent = `${rows} Baris`;
+  if (elStatus) elStatus.textContent = 'Data Terhubung';
+}
+
+function processDataset(data) {
+  if (!data || !data.length) return;
+  parsedData = data;
+  const cols = Object.keys(data[0]);
+  let numericCols = 0, missingCount = 0;
+
+  cols.forEach(c => {
+    let isNum = false;
+    data.forEach(r => {
+      if (r[c] === null || r[c] === undefined || r[c] === '') missingCount++;
+      if (typeof r[c] === 'number') isNum = true;
+    });
+    if (isNum) numericCols++;
+  });
+
+  document.getElementById('s-rows').textContent = data.length;
+  document.getElementById('s-cols').textContent = cols.length;
+  document.getElementById('s-num').textContent = numericCols;
+  document.getElementById('s-missing').textContent = missingCount;
+  document.getElementById('eda-stats').style.display = 'grid';
+  document.getElementById('eda-content').style.display = 'block';
+
+  // Preview table
+  const pTab = document.getElementById('preview-table');
+  let thead = '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+  let tbody = data.slice(0, 5).map(r => '<tr>' + cols.map(c => `<td>${r[c] ?? '-'}</td>`).join('') + '</tr>').join('');
+  pTab.innerHTML = `<thead>${thead}</thead><tbody>${tbody}</tbody>`;
+
+  // Selector
+  const sel = document.getElementById('col-selector');
+  sel.innerHTML = cols.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  computeDescriptiveStats(cols);
+  renderEdaChart();
+  if (typeof buildTopologyFromStack === 'function') {
+    buildTopologyFromStack();
+    if (typeof feedForwardSample === 'function') feedForwardSample();
+  }
+}
+
+function computeDescriptiveStats(cols) {
+  const dTab = document.getElementById('desc-table');
+  let rows = '<tr><th>Kolom</th><th>Mean</th><th>Min</th><th>Max</th></tr>';
+  cols.forEach(c => {
+    const nums = parsedData.map(r => r[c]).filter(v => typeof v === 'number');
+    if (nums.length) {
+      const mean = (nums.reduce((a,b)=>a+b,0)/nums.length).toFixed(2);
+      const min = Math.min(...nums).toFixed(2);
+      const max = Math.max(...nums).toFixed(2);
+      rows += `<tr><td><b>${c}</b></td><td>${mean}</td><td>${min}</td><td>${max}</td></tr>`;
+    }
+  });
+  dTab.innerHTML = rows;
+}
+
+function renderEdaChart() {
+  const col = document.getElementById('col-selector').value;
+  if (!col || !parsedData.length) return;
+  const vals = parsedData.map(r => r[col]).filter(v => v !== undefined && v !== null);
+
+  const isNumeric = typeof vals[0] === 'number';
+  let labels = [], counts = [];
+
+  if (isNumeric) {
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const bins = 8;
+    const step = (max - min) / bins;
+    const binCounts = Array(bins).fill(0);
+    labels = Array(bins).fill(0).map((_, i) => `${(min + i*step).toFixed(1)}-${(min + (i+1)*step).toFixed(1)}`);
+    vals.forEach(v => {
+      let b = Math.min(Math.floor((v - min) / step), bins - 1);
+      binCounts[b]++;
+    });
+    counts = binCounts;
+  } else {
+    const map = {};
+    vals.forEach(v => map[v] = (map[v] || 0) + 1);
+    labels = Object.keys(map).slice(0, 10);
+    counts = labels.map(k => map[k]);
+  }
+
+  const ctx = document.getElementById('eda-chart').getContext('2d');
+  if (edaChartInstance) edaChartInstance.destroy();
+  edaChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{ label: `Distribusi: ${col}`, data: counts, backgroundColor: '#38bdf8' }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { x: { ticks: { color: '#8492a6' } }, y: { ticks: { color: '#8492a6' } } },
+      plugins: { legend: { labels: { color: '#e2e8f0' } } }
+    }
+  });
+}
+
+// ── DRAG AND DROP BUILDER ─────────────────────────────────────────────────────
+function renderStack() {
+  const target = document.getElementById('drop-target');
+  target.innerHTML = '';
+  document.getElementById('layer-count').textContent = `${currentStack.length} Layer`;
+  currentStack.forEach((l, i) => {
+    const div = document.createElement('div');
+    div.className = 'stack-layer';
+    div.innerHTML = `
+      <div class="stack-left">
+        <span style="color:var(--accent);font-size:0.75rem">#${i+1}</span>
+        <span>${l.name}</span>
+      </div>
+      <button class="del-btn" onclick="removeLayer(${i})">✕</button>
+    `;
+    target.appendChild(div);
+  });
+}
+
+function allowDrop(e) { e.preventDefault(); e.currentTarget.classList.add('dragover'); }
+function leaveDrop(e) { e.currentTarget.classList.remove('dragover'); }
+function drag(e, name) { e.dataTransfer.setData('text/plain', name); }
+function drop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragover');
+  const name = e.dataTransfer.getData('text/plain');
+  if (name) {
+    currentStack.push({ name: `${name} (Param: Auto)`, type: name });
+    renderStack();
+  }
+}
+function removeLayer(idx) { currentStack.splice(idx, 1); renderStack(); }
+
+function applyPreset(val) {
+  if (val === 'mlp') {
+    currentStack = [
+      { name: 'Linear / Dense (In: 16, Out: 128)', type: 'Dense' },
+      { name: 'Activation (ReLU)', type: 'ReLU' },
+      { name: 'Dropout (0.2)', type: 'Dropout' },
+      { name: 'Linear / Dense (In: 128, Out: 64)', type: 'Dense' },
+      { name: 'Activation (Softmax / Out: 2)', type: 'Softmax' }
+    ];
+  } else if (val === 'cnn') {
+    currentStack = [
+      { name: 'Conv2D (Filters: 32, Kernel: 3x3)', type: 'Conv2D' },
+      { name: 'MaxPool2D (Pool: 2x2)', type: 'MaxPool2D' },
+      { name: 'Conv2D (Filters: 64, Kernel: 3x3)', type: 'Conv2D' },
+      { name: 'BatchNormalization', type: 'BatchNorm' },
+      { name: 'Flatten & Linear (Out: 10)', type: 'Dense' }
+    ];
+  } else if (val === 'rnn') {
+    currentStack = [
+      { name: 'LSTM (Hidden: 64, ReturnSeq: True)', type: 'LSTM' },
+      { name: 'Dropout (0.3)', type: 'Dropout' },
+      { name: 'LSTM (Hidden: 32)', type: 'LSTM' },
+      { name: 'Linear / Dense (Out: 1)', type: 'Dense' }
+    ];
+  } else if (val === 'autoencoder') {
+    currentStack = [
+      { name: 'Encoder: Dense (128 -> 32)', type: 'Dense' },
+      { name: 'Latent Bottleneck: Dense (32 -> 8)', type: 'Dense' },
+      { name: 'Decoder: Dense (8 -> 32)', type: 'Dense' },
+      { name: 'Reconstruction: Dense (32 -> 128)', type: 'Dense' }
+    ];
+  } else if (val === 'transformer') {
+    currentStack = [
+      { name: 'Embedding / Token Projection', type: 'Dense' },
+      { name: 'Multi-Head Attention (Heads: 8, Dim: 64)', type: 'Attention' },
+      { name: 'LayerNorm / Residual', type: 'LayerNorm' },
+      { name: 'FeedForward Block (FFN: 256)', type: 'FFN' },
+      { name: 'LayerNorm / Residual', type: 'LayerNorm' },
+      { name: 'Linear Output Projection', type: 'Softmax' }
+    ];
+  }
+  renderStack();
+  if (typeof buildTopologyFromStack === 'function') {
+    buildTopologyFromStack();
+    if (typeof feedForwardSample === 'function') feedForwardSample();
+  }
+}
+
+function exportCode(fw) {
+  let code = '';
+  const opt = document.getElementById('p-opt').value;
+  const lr = document.getElementById('p-lr').value;
+  if (fw === 'pytorch') {
+    code = `# PyTorch Deep Learning Model\nimport torch\nimport torch.nn as nn\n\nclass CustomNetwork(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.net = nn.Sequential(\n`;
+    currentStack.forEach(l => {
+      if (l.type.includes('Dense') || l.type.includes('Linear')) code += `            nn.Linear(64, 64),\n`;
+      else if (l.type.includes('Conv2D')) code += `            nn.Conv2d(3, 32, kernel_size=3, padding=1),\n`;
+      else if (l.type.includes('MaxPool')) code += `            nn.MaxPool2d(2, 2),\n`;
+      else if (l.type.includes('LSTM')) code += `            nn.LSTM(input_size=32, hidden_size=64, batch_first=True),\n`;
+      else if (l.type.includes('Dropout')) code += `            nn.Dropout(0.2),\n`;
+      else if (l.type.includes('ReLU')) code += `            nn.ReLU(),\n`;
+      else if (l.type.includes('Softmax')) code += `            nn.Softmax(dim=-1),\n`;
+    });
+    code += `        )\n    def forward(self, x):\n        return self.net(x)\n\nmodel = CustomNetwork()\noptimizer = torch.optim.${opt}(model.parameters(), lr=${lr})`;
+  } else {
+    code = `# TensorFlow / Keras Sequential Model\nimport tensorflow as tf\nfrom tensorflow.keras import layers, models\n\nmodel = models.Sequential([\n`;
+    currentStack.forEach(l => {
+      if (l.type.includes('Dense') || l.type.includes('Linear')) code += `    layers.Dense(64, activation='relu'),\n`;
+      else if (l.type.includes('Conv2D')) code += `    layers.Conv2D(32, (3,3), activation='relu'),\n`;
+      else if (l.type.includes('MaxPool')) code += `    layers.MaxPooling2D((2,2)),\n`;
+      else if (l.type.includes('LSTM')) code += `    layers.LSTM(64),\n`;
+      else if (l.type.includes('Dropout')) code += `    layers.Dropout(0.2),\n`;
+      else if (l.type.includes('BatchNorm')) code += `    layers.BatchNormalization(),\n`;
+    });
+    code += `])\nmodel.compile(optimizer='${opt.toLowerCase()}', loss='sparse_categorical_crossentropy', metrics=['accuracy'])`;
+  }
+  navigator.clipboard.writeText(code).then(() => alert(`Kode ${fw.toUpperCase()} berhasil disalin ke clipboard!`));
+}
+
+function runSimFromBuilder() {
+  switchTab('simulation');
+  startSimulation();
+}
+
+// ── SIMULATION MODULE (DYNAMIC ACTIVATION & GLOW) ────────────────────────────
+let simActive = false;
+let simAnimId = null;
+let currentEpoch = 0;
+let trainLoss = 0.95;
+let trainAcc = 45.0;
+
+// Dynamic NN Topology & Weights State
+let netTopology = []; // [{ layerIndex, nodes: [{ val, bias, glow }] }]
+let netWeights = [];  // [ layerIdx: [ fromNodeIdx: [ toNodeIdx: weight ] ] ]
+let pulses = [];      // [{ fromLayer, fromIdx, toIdx, progress, weight, val }]
+let currentSampleIdx = 0;
+let stepCounter = 0;
+
+function buildTopologyFromStack() {
+  // Input nodes count based on dataset numerical cols or default 4
+  let numInputs = 4;
+  if (parsedData && parsedData.length > 0) {
+    const cols = Object.keys(parsedData[0]);
+    const numCols = cols.filter(c => typeof parsedData[0][c] === 'number');
+    if (numCols.length > 0) numInputs = Math.min(Math.max(numCols.length, 3), 7);
+  }
+
+  // Derive layers from currentStack
+  const counts = [numInputs];
+  currentStack.forEach(layer => {
+    const t = layer.type || '';
+    if (t.includes('Dense') || t.includes('Linear')) {
+      // Extract units if in name, else default
+      const match = layer.name.match(/(?:Units|Out):?\s*(\d+)/i);
+      const units = match ? Math.min(Math.max(parseInt(match[1]), 2), 10) : 6;
+      counts.push(units);
+    } else if (t.includes('Conv2D')) {
+      counts.push(8);
+    } else if (t.includes('MaxPool')) {
+      counts.push(4);
+    } else if (t.includes('LSTM') || t.includes('GRU')) {
+      counts.push(5);
+    } else if (t.includes('Softmax')) {
+      counts.push(3);
+    }
+  });
+
+  // Ensure minimum 3 layers and reasonable limits
+  if (counts.length < 3) counts.push(5, 2);
+  if (counts.length > 6) counts.splice(5, counts.length - 5); // cap to 5 layers for clean visualization
+
+  netTopology = counts.map((count, lIdx) => {
+    return Array.from({ length: count }, (_, nIdx) => ({
+      layer: lIdx,
+      index: nIdx,
+      activation: 0.1, // 0.0 - 1.0
+      targetActivation: 0.1,
+      glow: 0.1
+    }));
+  });
+
+  // Initialize weights between layers
+  netWeights = [];
+  for (let l = 0; l < netTopology.length - 1; l++) {
+    const layerW = [];
+    for (let i = 0; i < netTopology[l].length; i++) {
+      const fromW = [];
+      for (let j = 0; j < netTopology[l + 1].length; j++) {
+        fromW.push((Math.random() * 2 - 1) * 1.2); // weight between -1.2 and 1.2
+      }
+      layerW.push(fromW);
+    }
+    netWeights.push(layerW);
+  }
+}
+
+function feedForwardSample() {
+  if (!netTopology.length) buildTopologyFromStack();
+
+  // 1. Get input vector from dataset or synthetic
+  let inputVals = [];
+  if (parsedData && parsedData.length > 0) {
+    const row = parsedData[currentSampleIdx % parsedData.length];
+    currentSampleIdx++;
+    const cols = Object.keys(row).filter(c => typeof row[c] === 'number');
+    inputVals = cols.slice(0, netTopology[0].length).map(c => {
+      let v = Math.abs(row[c]);
+      return Math.min(Math.max((v % 10) / 10, 0.15), 1.0);
+    });
+  }
+  while (inputVals.length < netTopology[0].length) {
+    inputVals.push(Math.random() * 0.85 + 0.15);
+  }
+
+  // Set input activations
+  netTopology[0].forEach((node, idx) => {
+    node.targetActivation = inputVals[idx];
+    node.glow = inputVals[idx];
+  });
+
+  // 2. Propagate forward layer by layer
+  for (let l = 0; l < netTopology.length - 1; l++) {
+    const curLayer = netTopology[l];
+    const nextLayer = netTopology[l + 1];
+    const weights = netWeights[l];
+
+    nextLayer.forEach((targetNode, j) => {
+      let sum = 0;
+      curLayer.forEach((srcNode, i) => {
+        const w = weights[i][j];
+        sum += srcNode.targetActivation * w;
+
+        // Spawn pulses occasionally along strong connections
+        if (Math.abs(w) > 0.3 && srcNode.targetActivation > 0.25 && Math.random() < 0.6) {
+          pulses.push({
+            fromLayer: l,
+            fromIdx: i,
+            toIdx: j,
+            progress: 0,
+            speed: 0.05 + Math.random() * 0.03,
+            weight: w,
+            val: srcNode.targetActivation
+          });
+        }
+      });
+      // Sigmoid / ReLU activation
+      const act = 1 / (1 + Math.exp(-sum));
+      targetNode.targetActivation = Math.min(Math.max(act, 0.05), 1.0);
+    });
+  }
+}
+
+function initSimCanvas() {
+  const canvas = document.getElementById('net-canvas');
+  if (!canvas) return;
+  canvas.width = canvas.parentElement.clientWidth;
+  canvas.height = 360;
+  buildTopologyFromStack();
+  feedForwardSample();
+  initTrainChart();
+  if (!simAnimId) renderSimLoop();
+}
+
+function renderSimLoop() {
+  const canvas = document.getElementById('net-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+
+  ctx.fillStyle = '#070a13';
+  ctx.fillRect(0, 0, w, h);
+
+  // Smooth lerp activation and glow
+  netTopology.forEach(layer => {
+    layer.forEach(node => {
+      node.activation += (node.targetActivation - node.activation) * 0.12;
+      node.glow += (node.targetActivation - node.glow) * 0.15;
+    });
+  });
+
+  // Compute node coordinates
+  const numLayers = netTopology.length;
+  const layerX = netTopology.map((_, i) => (w / (numLayers + 1)) * (i + 1));
+  const nodeCoords = netTopology.map((layer, li) => {
+    const count = layer.length;
+    const stepY = h / (count + 1);
+    return layer.map((node, ni) => ({
+      x: layerX[li],
+      y: stepY * (ni + 1),
+      node: node
+    }));
+  });
+
+  // 1. Draw Synapses (Connections) with brightness proportional to weight & source activation
+  for (let l = 0; l < nodeCoords.length - 1; l++) {
+    const curLayerCoords = nodeCoords[l];
+    const nextLayerCoords = nodeCoords[l + 1];
+    const weights = netWeights[l];
+
+    curLayerCoords.forEach((src, i) => {
+      nextLayerCoords.forEach((dst, j) => {
+        const wVal = weights[i][j];
+        const activity = src.node.activation * Math.abs(wVal);
+        const isPositive = wVal > 0;
+
+        ctx.beginPath();
+        ctx.moveTo(src.x, src.y);
+        ctx.lineTo(dst.x, dst.y);
+
+        if (activity > 0.3) {
+          // Firing / active connection: luminous line
+          const alpha = Math.min(Math.max(activity * 0.85, 0.15), 0.95);
+          ctx.strokeStyle = isPositive 
+            ? `rgba(56, 189, 248, ${alpha})`   // Cyan for positive excitation
+            : `rgba(248, 113, 113, ${alpha})`; // Red/Amber for negative/inhibitory
+          ctx.lineWidth = 1 + activity * 2.5;
+        } else {
+          // Idle connection: dim wire
+          ctx.strokeStyle = 'rgba(31, 44, 71, 0.25)';
+          ctx.lineWidth = 0.8;
+        }
+        ctx.stroke();
+      });
+    });
+  }
+
+  // 2. Draw Moving Pulses (Data Transmission)
+  for (let i = pulses.length - 1; i >= 0; i--) {
+    const p = pulses[i];
+    p.progress += p.speed;
+    if (p.progress >= 1) {
+      // Flash destination node on arrival
+      if (netTopology[p.fromLayer + 1] && netTopology[p.fromLayer + 1][p.toIdx]) {
+        netTopology[p.fromLayer + 1][p.toIdx].glow = Math.min(netTopology[p.fromLayer + 1][p.toIdx].glow + 0.3, 1.2);
+      }
+      pulses.splice(i, 1);
+      continue;
+    }
+    const pFrom = nodeCoords[p.fromLayer][p.fromIdx];
+    const pTo = nodeCoords[p.fromLayer + 1][p.toIdx];
+    const curX = pFrom.x + (pTo.x - pFrom.x) * p.progress;
+    const curY = pFrom.y + (pTo.y - pFrom.y) * p.progress;
+
+    ctx.save();
+    ctx.shadowColor = p.weight > 0 ? '#38bdf8' : '#f87171';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(curX, curY, 2.5 + p.val * 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 3. Draw Neurons with Dynamic Glow based on Activation Level
+  nodeCoords.forEach((layerCoords, li) => {
+    const isInput = li === 0;
+    const isOutput = li === nodeCoords.length - 1;
+
+    layerCoords.forEach(item => {
+      const { x, y, node } = item;
+      const intensity = Math.min(Math.max(node.glow, 0.05), 1.0);
+      const radius = 6 + intensity * 4;
+
+      ctx.save();
+      if (intensity > 0.35) {
+        // High Activation: Glowing aura
+        ctx.shadowColor = isInput ? '#4ade80' : isOutput ? '#a855f7' : '#38bdf8';
+        ctx.shadowBlur = 12 + intensity * 18;
+      } else {
+        ctx.shadowBlur = 0;
+      }
+
+      // Outer Glow Ring
+      const grad = ctx.createRadialGradient(x, y, 2, x, y, radius + 4);
+      if (isInput) {
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.3, `rgba(74, 222, 128, ${intensity})`);
+        grad.addColorStop(1, `rgba(74, 222, 128, 0)`);
+      } else if (isOutput) {
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.3, `rgba(168, 85, 247, ${intensity})`);
+        grad.addColorStop(1, `rgba(168, 85, 247, 0)`);
+      } else {
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.3, `rgba(56, 189, 248, ${intensity})`);
+        grad.addColorStop(1, `rgba(56, 189, 248, 0)`);
+      }
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Core Neuron Body
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      if (intensity > 0.4) {
+        ctx.fillStyle = '#ffffff'; // blazing core when active
+      } else {
+        ctx.fillStyle = isInput ? '#166534' : isOutput ? '#581c87' : '#075985';
+      }
+      ctx.fill();
+
+      ctx.strokeStyle = isInput ? '#4ade80' : isOutput ? '#a855f7' : '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Show activation value label near node
+      ctx.restore();
+      ctx.fillStyle = 'rgba(226, 232, 240, 0.7)';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(node.activation.toFixed(2), x, y + radius + 11);
+    });
+  });
+
+  // Layer Header Titles
+  ctx.fillStyle = '#8492a6';
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  nodeCoords.forEach((coords, i) => {
+    const title = i === 0 ? 'Input Layer' : i === nodeCoords.length - 1 ? 'Output Layer' : `Hidden L${i}`;
+    ctx.fillText(title, layerX[i], 16);
+  });
+
+  simAnimId = requestAnimationFrame(renderSimLoop);
+}
+
+function initTrainChart() {
+  const ctx = document.getElementById('train-chart');
+  if (!ctx) return;
+  if (trainChartInstance) return;
+  trainChartInstance = new Chart(ctx.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'Loss', data: [], borderColor: '#f87171', backgroundColor: 'rgba(248,113,113,0.1)', tension: 0.3, yAxisID: 'y', fill: true },
+        { label: 'Accuracy (%)', data: [], borderColor: '#4ade80', tension: 0.3, yAxisID: 'y1' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: '#8492a6' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { type: 'linear', position: 'left', min: 0, max: 1.2, ticks: { color: '#f87171' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y1: { type: 'linear', position: 'right', min: 0, max: 100, ticks: { color: '#4ade80' }, grid: { drawOnChartArea: false } }
+      },
+      plugins: { legend: { labels: { color: '#e2e8f0' } } }
+    }
+  });
+}
+
+function toggleSimulation() {
+  simActive ? stopSimulation() : startSimulation();
+}
+
+function startSimulation() {
+  simActive = true;
+  document.getElementById('sim-btn').textContent = '⏸ Jeda Simulasi';
+  if (!trainChartInstance) initTrainChart();
+
+  // Fast forward data feeding & training steps
+  simInterval = setInterval(() => {
+    feedForwardSample();
+
+    stepCounter++;
+    if (stepCounter % 3 === 0) {
+      currentEpoch++;
+      const maxEp = +document.getElementById('p-epochs').value || 30;
+      if (currentEpoch > maxEp) { stopSimulation(); return; }
+
+      // Update metrics smoothly based on dataset size
+      const lr = parseFloat(document.getElementById('p-lr')?.value || '0.001');
+      const decay = Math.min(lr * 15, 0.04);
+      trainLoss = Math.max(0.04, trainLoss - (decay + Math.random() * 0.015));
+      trainAcc = Math.min(99.2, trainAcc + (decay * 80 + Math.random() * 0.9));
+
+      document.getElementById('m-epoch').textContent = currentEpoch;
+      document.getElementById('m-loss').textContent = trainLoss.toFixed(3);
+      document.getElementById('m-acc').textContent = trainAcc.toFixed(1) + '%';
+
+      if (trainChartInstance) {
+        trainChartInstance.data.labels.push(`E${currentEpoch}`);
+        trainChartInstance.data.datasets[0].data.push(trainLoss);
+        trainChartInstance.data.datasets[1].data.push(trainAcc);
+        trainChartInstance.update();
+      }
+    }
+  }, 240);
+}
+
+function stopSimulation() {
+  simActive = false;
+  clearInterval(simInterval);
+  document.getElementById('sim-btn').textContent = '▶ Lanjutkan Simulasi';
+}
+
+function resetSim() {
+  stopSimulation();
+  currentEpoch = 0; trainLoss = 0.95; trainAcc = 45.0; stepCounter = 0;
+  document.getElementById('m-epoch').textContent = '0';
+  document.getElementById('m-loss').textContent = '0.000';
+  document.getElementById('m-acc').textContent = '0.0%';
+  if (trainChartInstance) {
+    trainChartInstance.data.labels = [];
+    trainChartInstance.data.datasets[0].data = [];
+    trainChartInstance.data.datasets[1].data = [];
+    trainChartInstance.update();
+  }
+  buildTopologyFromStack();
+  feedForwardSample();
+  document.getElementById('sim-btn').textContent = '▶ Mulai Latihan / Simulasi';
+}
+
+// Initial Boot
+document.addEventListener('DOMContentLoaded', () => {
+  renderStack();
+});
+</script>
+</body>
+</html>
